@@ -293,20 +293,7 @@ access token, refresh token, website cookies and account details in it are not
 needed to sign API requests.
 
 With [`gh`](https://cli.github.com/) and [`jq`](https://jqlang.github.io/jq/),
-from inside the target repository:
-
-```shell
-jq -r .adp_token ~/.audible/auth.json |
-  gh secret set AUDIBLE_ADP_TOKEN
-
-jq -r .device_private_key ~/.audible/auth.json |
-  gh secret set AUDIBLE_DEVICE_PRIVATE_KEY
-
-gh variable set AUDIBLE_COUNTRY_CODE --body de
-```
-
-Naming the repository explicitly works from anywhere and does not depend on the
-current Git working directory:
+naming the target repository explicitly:
 
 ```shell
 jq -r .adp_token ~/.audible/auth.json |
@@ -320,6 +307,20 @@ gh variable set AUDIBLE_COUNTRY_CODE -R OWNER/REPO --body de
 
 Adjust `~/.audible/auth.json` if your config directory is somewhere else, and
 `de` to your marketplace.
+
+> ⚠️ Use `-R OWNER/REPO`. Without it, `gh` picks the repository from whatever
+> directory you happen to be in. Standing in your config directory is the
+> harmless outcome — `gh` just refuses, because it is not a Git repository.
+> Standing in some *other* checkout is the one that hurts: the command succeeds
+> and writes your Audible credentials to a repository you did not mean to give
+> them to.
+
+If you are already inside the target repository, the flag is redundant and you
+can leave it off:
+
+```shell
+jq -r .adp_token ~/.audible/auth.json | gh secret set AUDIBLE_ADP_TOKEN
+```
 
 `jq` adds its own newline, so the secret can end up with one more line break
 than the key had. That is fine: the action normalizes whatever follows the
