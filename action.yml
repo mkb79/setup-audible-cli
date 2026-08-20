@@ -54,7 +54,7 @@ inputs:
     default: ""
   country-code:
     description: >-
-      Audible marketplace to use, for example "de", "us" or "uk". Required when
+      Audible marketplace to use, for example "us", "uk" or "de". Required when
       credentials are supplied. No marketplace is assumed, because silently
       choosing the wrong one is worse than asking for it.
     required: false

@@ -211,7 +211,7 @@ independent of whatever Python your own project uses.
 | `crypto-backend` | Crypto backend to install for audible-cli. One of `cryptography`, `pycryptodome`, or `none` to install no crypto extra at all, which leaves audible on its slower pure-Python implementation. | No | `cryptography` |
 | `adp-token` | Audible ADP token. **Sensitive**, pass it from a secret. Requires `device-private-key` and `country-code`. | No | `""` |
 | `device-private-key` | Multiline RSA private key used for ADP request signing. **Sensitive**, pass it from a secret. Requires `adp-token` and `country-code`. | No | `""` |
-| `country-code` | Audible marketplace to use, for example `de`, `us` or `uk`. Required when credentials are supplied. | No | `""` |
+| `country-code` | Audible marketplace to use, for example `us`, `uk` or `de`. Required when credentials are supplied. | No | `""` |
 
 `country-code` has no default on purpose. Silently choosing the wrong
 marketplace would be worse than asking you for it.
@@ -302,11 +302,11 @@ jq -r .adp_token ~/.audible/auth.json |
 jq -r .device_private_key ~/.audible/auth.json |
   gh secret set AUDIBLE_DEVICE_PRIVATE_KEY -R OWNER/REPO
 
-gh variable set AUDIBLE_COUNTRY_CODE -R OWNER/REPO --body de
+gh variable set AUDIBLE_COUNTRY_CODE -R OWNER/REPO --body "us"
 ```
 
 Adjust `~/.audible/auth.json` if your config directory is somewhere else, and
-`de` to your marketplace.
+the `"us"` marketplace code to your own.
 
 > ⚠️ Use `-R OWNER/REPO`. Without it, `gh` picks the repository from whatever
 > directory you happen to be in. Standing in your config directory is the
