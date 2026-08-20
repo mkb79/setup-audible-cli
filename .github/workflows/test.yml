@@ -36,7 +36,7 @@ jobs:
         run: python -m pytest tests -v
 
   action:
-    name: action (${{ matrix.os }}, ${{ matrix.crypto-backend }})
+    name: action (${{ matrix.os }}, ${{ matrix.crypto-backend }}, ${{ matrix.git-ref || matrix.version }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
