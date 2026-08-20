@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-08-20
+
 Derived from the GitHub Actions workflow [@DanMat](https://github.com/DanMat)
 contributed in [audible-cli#304](https://github.com/mkb79/audible-cli/pull/304),
 which grew out of his request in
@@ -79,4 +81,5 @@ which grew out of his request in
   because they would grant no protection there.
 - Setting the action up performs no Audible API request.
 
-[Unreleased]: https://github.com/mkb79/setup-audible-cli/commits/main
+[Unreleased]: https://github.com/mkb79/setup-audible-cli/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/mkb79/setup-audible-cli/releases/tag/v1.0.0
