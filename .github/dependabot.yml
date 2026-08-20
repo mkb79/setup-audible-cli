@@ -1,0 +1,12 @@
+# The actions used here are pinned to commit SHAs, which do not pick up security
+# fixes on their own. Dependabot reads the version comment next to each pin and
+# opens a pull request when the referenced release moves.
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "ci"

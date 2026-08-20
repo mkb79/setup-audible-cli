@@ -1,0 +1,267 @@
+name: test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: unit (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+
+      - name: Install test dependencies
+        shell: bash
+        run: python -m pip install --disable-pip-version-check --no-input pytest
+
+      - name: Run unit tests
+        shell: bash
+        run: python -m pytest tests -v
+
+  action:
+    name: action (${{ matrix.os }}, ${{ matrix.crypto-backend }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            crypto-backend: cryptography
+            version: "0.5.1"
+          - os: macos-latest
+            crypto-backend: pycryptodome
+            version: latest
+          - os: windows-latest
+            crypto-backend: cryptography
+            version: latest
+          # Pinned to the release that does not declare a pycryptodome extra,
+          # so the fallback in install.py stays covered once newer releases do.
+          - os: ubuntu-latest
+            crypto-backend: pycryptodome
+            version: "0.5.1"
+          - os: ubuntu-latest
+            crypto-backend: none
+            version: latest
+          # Installs from the repository instead of PyPI. master also declares
+          # the pycryptodome extra, so this is the one job where that extra
+          # resolves normally rather than through the fallback.
+          - os: ubuntu-latest
+            crypto-backend: pycryptodome
+            version: latest
+            git-ref: master
+    # Obviously fake credentials. They are never sent anywhere: no step below
+    # contacts Audible. Note that runner.temp is deliberately not used here,
+    # because the runner context is unavailable in a job-level env block.
+    env:
+      FAKE_ADP_TOKEN: "{enc:NOT-A-REAL-ADP-TOKEN}{key:FAKE}{iv:FAKE}{name:FAKE}{serial:Mg==}"
+      FAKE_DEVICE_PRIVATE_KEY: |-
+        -----BEGIN RSA PRIVATE KEY-----
+        NOTAREALKEYnotarealkeyNOTAREALKEY000000000000
+        NOTAREALKEYnotarealkeyNOTAREALKEY111111111111
+        -----END RSA PRIVATE KEY-----
+      FAKE_COUNTRY_CODE: de
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # ------------------------------------------------------------------
+      # install-only mode
+      # ------------------------------------------------------------------
+      - name: Set up audible-cli (install only)
+        id: install-only
+        uses: ./
+        with:
+          version: ${{ matrix.version }}
+          git-ref: ${{ matrix.git-ref }}
+          crypto-backend: ${{ matrix.crypto-backend }}
+
+      - name: Run a command that needs no network
+        shell: bash
+        run: audible --help
+
+      - name: Verify install-only mode
+        shell: bash
+        env:
+          AUDIBLE_VERSION: ${{ steps.install-only.outputs.audible-version }}
+          AUDIBLE_PATH: ${{ steps.install-only.outputs.audible-path }}
+          CONFIG_DIR_OUTPUT: ${{ steps.install-only.outputs.config-dir }}
+          EXPECTED_VERSION: ${{ matrix.version }}
+          EXPECTED_BACKEND: ${{ matrix.crypto-backend }}
+          EXPECTED_GIT_REF: ${{ matrix.git-ref }}
+        run: |
+          python - <<'PY'
+          import importlib.metadata
+          import json
+          import os
+          import shutil
+          from importlib.metadata import version
+          from pathlib import Path
+
+          reported = os.environ["AUDIBLE_VERSION"]
+          executable = Path(os.environ["AUDIBLE_PATH"])
+          expected = os.environ["EXPECTED_VERSION"]
+          backend = os.environ["EXPECTED_BACKEND"]
+
+          assert reported, "the audible-version output is empty"
+          assert executable.is_file(), f"audible-path does not exist: {executable}"
+          assert os.environ["CONFIG_DIR_OUTPUT"] == "", "config-dir must be empty without credentials"
+
+          # The audible the following steps get must be the one just installed,
+          # not some other binary that happened to be on PATH first.
+          on_path = shutil.which("audible")
+          assert on_path is not None, "audible is not on PATH"
+          assert os.path.samefile(on_path, executable), f"PATH resolves {on_path}, not {executable}"
+          assert "AUDIBLE_CONFIG_DIR" not in os.environ, "AUDIBLE_CONFIG_DIR must not be set"
+
+          git_ref = os.environ["EXPECTED_GIT_REF"]
+          if git_ref:
+              # A git install records where it came from; a PyPI install does not.
+              recorded = importlib.metadata.distribution("audible-cli").read_text("direct_url.json")
+              assert recorded, "expected a git install, but no direct_url.json was recorded"
+              info = json.loads(recorded)
+              assert info["url"].endswith("mkb79/audible-cli"), info["url"]
+              assert info["vcs_info"]["requested_revision"] == git_ref, info["vcs_info"]
+
+              # The version output must carry the commit, since the branch
+              # reports whatever version its pyproject declares.
+              commit = info["vcs_info"]["commit_id"]
+              assert reported == f'{version("audible-cli")}+g{commit}', reported
+              print(f"installed from {info['url']}@{git_ref} as {reported}")
+          else:
+              assert reported == version("audible-cli"), "audible-version disagrees with the metadata"
+              if expected != "latest":
+                  assert reported == expected, f"expected {expected}, installed {reported}"
+
+          from audible.crypto_provider import get_crypto_providers
+
+          provider = get_crypto_providers().provider_name
+          if backend == "none":
+              # No extra was requested, so nothing should have accelerated it.
+              assert provider == "legacy", f"expected the pure-Python fallback, got {provider}"
+          else:
+              # The requested backend must really be importable, not silently
+              # replaced by audible's pure-Python fallback.
+              __import__({"cryptography": "cryptography", "pycryptodome": "Crypto"}[backend])
+              assert provider == backend, f"requested {backend}, audible selected {provider}"
+
+          print(f"install-only mode OK: audible-cli {reported}, crypto provider {provider}")
+          PY
+
+      # ------------------------------------------------------------------
+      # authenticated mode, with fake credentials
+      # ------------------------------------------------------------------
+      - name: Set up audible-cli (with authentication)
+        id: auth
+        uses: ./
+        with:
+          version: ${{ matrix.version }}
+          git-ref: ${{ matrix.git-ref }}
+          crypto-backend: ${{ matrix.crypto-backend }}
+          adp-token: ${{ env.FAKE_ADP_TOKEN }}
+          device-private-key: ${{ env.FAKE_DEVICE_PRIVATE_KEY }}
+          country-code: ${{ env.FAKE_COUNTRY_CODE }}
+
+      - name: Verify the generated configuration
+        shell: bash
+        env:
+          CONFIG_DIR_OUTPUT: ${{ steps.auth.outputs.config-dir }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import tomllib
+          from pathlib import Path
+
+          # Set by the previous step through GITHUB_ENV, so reaching it here is
+          # what proves it survives into following workflow steps.
+          config_dir = Path(os.environ["AUDIBLE_CONFIG_DIR"])
+          assert str(config_dir) == os.environ["CONFIG_DIR_OUTPUT"], "config-dir output disagrees"
+
+          auth_file = config_dir / "auth.json"
+          config_file = config_dir / "config.toml"
+          assert auth_file.is_file(), f"missing {auth_file}"
+          assert config_file.is_file(), f"missing {config_file}"
+
+          auth = json.loads(auth_file.read_text(encoding="utf-8"))
+          assert set(auth) == {"adp_token", "device_private_key"}, sorted(auth)
+          assert auth["adp_token"] == os.environ["FAKE_ADP_TOKEN"], "adp_token was altered"
+
+          stored = auth["device_private_key"]
+          expected = os.environ["FAKE_DEVICE_PRIVATE_KEY"]
+          assert stored.splitlines() == expected.splitlines(), "the multiline key did not survive"
+          assert len(stored.splitlines()) == 4, "the key lost or gained a line"
+          assert stored.endswith("\n"), "the key must end in a newline"
+          assert not stored.endswith("\n\n"), "the key gained a duplicate newline"
+
+          config = tomllib.loads(config_file.read_text(encoding="utf-8"))
+          assert config["APP"]["primary_profile"] == "ci"
+          assert config["profile"]["ci"]["auth_file"] == "auth.json"
+          assert config["profile"]["ci"]["country_code"] == os.environ["FAKE_COUNTRY_CODE"]
+
+          # audible validates adp_token and device_private_key when it loads an
+          # auth file. Doing it here proves the generated file is acceptable to
+          # the library itself, and it sends no request.
+          import audible
+
+          auth = audible.Authenticator.from_file(auth_file, locale=os.environ["FAKE_COUNTRY_CODE"])
+          assert auth.adp_token == os.environ["FAKE_ADP_TOKEN"], "adp_token did not round-trip"
+          assert auth.device_private_key == stored, "device_private_key did not round-trip"
+          assert auth.access_token is None and auth.refresh_token is None, "unexpected token"
+
+          print(f"authenticated mode OK: {len(stored.splitlines())} key lines, marketplace "
+                f"{config['profile']['ci']['country_code']}, accepted by audible")
+          PY
+
+      - name: Verify audible-cli picks up the generated profile
+        shell: bash
+        # Reads config.toml through AUDIBLE_CONFIG_DIR and lists the profiles it
+        # finds. This exercises config discovery only, and sends no request; the
+        # auth file itself is validated in the previous step.
+        run: audible manage profile list
+
+  # Covers two things one cheap job: that python-version is actually honoured,
+  # and that the helper scripts still work on the oldest interpreter audible-cli
+  # supports, which a consumer can select through that same input.
+  oldest-supported:
+    name: python-version input (3.11)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up audible-cli on the oldest supported Python
+        uses: ./
+        with:
+          python-version: "3.11"
+
+      - name: Verify the requested interpreter is the one in use
+        shell: bash
+        run: |
+          python - <<'PY'
+          import sys
+
+          assert sys.version_info[:2] == (3, 11), f"expected 3.11, got {sys.version.split()[0]}"
+          print(f"python-version honoured: {sys.version.split()[0]}")
+          PY
+          audible --help > /dev/null
+
+      - name: Run unit tests on that interpreter
+        shell: bash
+        run: |
+          python -m pip install --disable-pip-version-check --no-input pytest
+          python -m pytest tests -q
