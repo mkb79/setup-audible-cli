@@ -1,0 +1,106 @@
+name: Setup audible-cli
+description: >-
+  Install audible-cli and optionally configure minimal Audible ADP
+  authentication, so that later workflow steps can run audible commands.
+author: mkb79 and contributors
+
+branding:
+  icon: headphones
+  color: orange
+
+inputs:
+  version:
+    description: >-
+      Version of audible-cli to install. Either "latest" for the current PyPI
+      release, or an exact version such as "0.5.1".
+    required: false
+    default: latest
+  git-ref:
+    description: >-
+      Install from this branch, tag or commit of the audible-cli repository
+      instead of from PyPI. Cannot be combined with version.
+    required: false
+    default: ""
+  git-repository:
+    description: >-
+      GitHub repository to install from, in owner/name form. Only applies when
+      git-ref is set.
+    required: false
+    default: mkb79/audible-cli
+  python-version:
+    description: >-
+      Python version used to run audible-cli. Anything from 3.11 to 3.14 works;
+      the default follows the version audible-cli builds its own releases with.
+    required: false
+    default: "3.14"
+  crypto-backend:
+    description: >-
+      Crypto backend to install for audible-cli. One of "cryptography",
+      "pycryptodome", or "none" to install no crypto extra at all, which leaves
+      audible on its slower pure-Python implementation.
+    required: false
+    default: cryptography
+  adp-token:
+    description: >-
+      Audible ADP token. Sensitive, pass it from a secret. Requires
+      device-private-key and country-code.
+    required: false
+    default: ""
+  device-private-key:
+    description: >-
+      Multiline RSA private key used for ADP request signing. Sensitive, pass it
+      from a secret. Requires adp-token and country-code.
+    required: false
+    default: ""
+  country-code:
+    description: >-
+      Audible marketplace to use, for example "de", "us" or "uk". Required when
+      credentials are supplied. No marketplace is assumed, because silently
+      choosing the wrong one is worse than asking for it.
+    required: false
+    default: ""
+
+outputs:
+  audible-version:
+    description: The installed audible-cli distribution version.
+    value: ${{ steps.install.outputs.audible-version }}
+  audible-path:
+    description: Path to the installed audible executable.
+    value: ${{ steps.install.outputs.audible-path }}
+  config-dir:
+    description: >-
+      The generated audible-cli configuration directory. Empty in install-only
+      mode.
+    value: ${{ steps.configure.outputs.config-dir }}
+
+runs:
+  using: composite
+  steps:
+    # Pinned to a commit rather than a tag: a tag can be moved to point at
+    # different code, and this action runs in its consumers' workflows.
+    - name: Set up Python
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    # Runs before the install so that an incomplete credential group fails in
+    # seconds instead of after a full pip install. The inputs are passed as
+    # environment variables, never as arguments or shell text.
+    - name: Configure Audible authentication
+      id: configure
+      shell: bash
+      env:
+        INPUT_ADP_TOKEN: ${{ inputs.adp-token }}
+        INPUT_DEVICE_PRIVATE_KEY: ${{ inputs.device-private-key }}
+        INPUT_COUNTRY_CODE: ${{ inputs.country-code }}
+      run: python "$GITHUB_ACTION_PATH/scripts/configure.py"
+
+    - name: Install audible-cli
+      id: install
+      shell: bash
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
+        INPUT_GIT_REF: ${{ inputs.git-ref }}
+        INPUT_GIT_REPOSITORY: ${{ inputs.git-repository }}
+        INPUT_CRYPTO_BACKEND: ${{ inputs.crypto-backend }}
+      run: python "$GITHUB_ACTION_PATH/scripts/install.py"
