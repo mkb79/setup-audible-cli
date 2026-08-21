@@ -1,7 +1,7 @@
 name: Setup audible-cli
 description: >-
-  Install audible-cli and optionally configure minimal Audible ADP
-  authentication, so that later workflow steps can run audible commands.
+  Install audible-cli and optionally configure Audible request signing
+  for later workflow steps.
 author: mkb79 and contributors
 
 branding:
