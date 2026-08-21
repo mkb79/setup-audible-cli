@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-08-21
+
+### Changed
+
+- Shortened the action description to the 125 characters the GitHub Marketplace
+  allows, so the action can be listed there, and describe the auth mode as
+  request signing rather than ADP. That is what `audible` calls it internally,
+  and it says what actually happens; ADP appears nowhere in the library except
+  as a field name and an HTTP header prefix. Behaviour is unchanged.
+
 ## [1.0.0] - 2026-08-20
 
 Derived from the GitHub Actions workflow [@DanMat](https://github.com/DanMat)
@@ -81,5 +91,6 @@ which grew out of his request in
   because they would grant no protection there.
 - Setting the action up performs no Audible API request.
 
-[Unreleased]: https://github.com/mkb79/setup-audible-cli/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/mkb79/setup-audible-cli/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/mkb79/setup-audible-cli/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/mkb79/setup-audible-cli/releases/tag/v1.0.0
