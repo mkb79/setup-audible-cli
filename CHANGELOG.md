@@ -2,8 +2,8 @@
 
 All notable changes to this project are documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format is based on [Keep a Changelog], and this project adheres to
+[Semantic Versioning].
 
 ## [Unreleased]
 
@@ -12,14 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Action description shortened to fit the GitHub Marketplace's 125-character
-  limit, and the auth mode described as request signing rather than ADP (#5)
+  limit, and the auth mode described as request signing rather than ADP ([#5])
 
 ## [1.0.0] - 2026-08-20
 
-Derived from the GitHub Actions workflow [@DanMat](https://github.com/DanMat)
-contributed in [audible-cli#304](https://github.com/mkb79/audible-cli/pull/304),
-which grew out of his request in
-[audible-cli#303](https://github.com/mkb79/audible-cli/issues/303).
+Derived from the GitHub Actions workflow [@DanMat] contributed in
+[audible-cli#304], which grew out of his request in [audible-cli#303].
 
 ### Added
 
@@ -54,6 +52,14 @@ which grew out of his request in
   claimed on Windows where they would grant nothing
 - Setting the action up performs no Audible API request
 
+[Keep a Changelog]: https://keepachangelog.com/en/1.1.0/
+[Semantic Versioning]: https://semver.org/spec/v2.0.0.html
+[@DanMat]: https://github.com/DanMat
+[audible-cli#303]: https://github.com/mkb79/audible-cli/issues/303
+[audible-cli#304]: https://github.com/mkb79/audible-cli/pull/304
+
 [Unreleased]: https://github.com/mkb79/setup-audible-cli/compare/v1.0.1...HEAD
 [1.0.1]: https://github.com/mkb79/setup-audible-cli/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/mkb79/setup-audible-cli/releases/tag/v1.0.0
+
+[#5]: https://github.com/mkb79/setup-audible-cli/pull/5
